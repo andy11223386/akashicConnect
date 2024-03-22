@@ -20,9 +20,7 @@ router.post('/signup', async (req, res) => {
         return res.status(400).send({ message: 'Username or email already exists' });
       }
   
-      // 加密密碼並創建用戶
-      const hashedPassword = await bcrypt.hash(password, 10);
-      const user = new User({ username, email, password: hashedPassword });
+      const user = new User({ username, email, password });
       await user.save();
   
       // 創建 JWT token
@@ -42,8 +40,14 @@ router.post('/signup', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     console.log("req.", req.body);
-    const { email, password } = req.body;
-    const user = await User.findOne({ email });
+    const { username, password } = req.body;
+    console.log(username);
+    console.log(password);
+
+    const user = await User.findOne({ username });
+    console.log("user", user);
+    
+    
     if (!user || !await bcrypt.compare(password, user.password)) {
       return res.status(401).send({ message: 'Invalid credentials' });
     }
