@@ -7,6 +7,7 @@ const router = express.Router();
 
 router.post('/signup', async (req, res) => {
     try {
+      console.log('req.body', req.body)
       const { username, email, password, confirmPassword } = req.body;
   
       // 驗證密碼是否匹配
