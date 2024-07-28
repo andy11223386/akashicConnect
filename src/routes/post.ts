@@ -1,13 +1,15 @@
 import express from 'express';
 import mongoose, { Schema, Document } from 'mongoose';
+import User from '../models/user';
 import { v4 as uuidv4 } from 'uuid';
+
+
 
 // 定義推文接口
 export interface ITweet extends Document {
   id: string;
   createdAt: string;
   username: string;
-  userId: string;
   profilePicture: string;
   content: string;
   comments: number;
@@ -16,12 +18,24 @@ export interface ITweet extends Document {
   views: number;
 }
 
+export interface ICreateTweetResponse {
+  id: string;
+  createdAt: string;
+  username: string;
+  profilePicture: string;
+  content: string;
+  comments: number;
+  retweets: number;
+  likes: number;
+  views: number;
+  nickname: string | null;
+}
+
 // 創建推文 Schema
 const TweetSchema: Schema = new Schema({
   id: { type: String, required: true, unique: true },
   createdAt: { type: String, required: true },
   username: { type: String, required: true },
-  userId: { type: String, required: true },
   profilePicture: { type: String, required: true },
   content: { type: String, required: true },
   comments: { type: Number, required: true, default: 0 },
@@ -52,19 +66,16 @@ const router = express.Router();
 
 router.post('/createPost', async (req, res) => {
   try {
-    const { username, userId, profilePicture, content } = req.body;
+    const { username, profilePicture, content } = req.body;
 
-    // 驗證傳入的數據
-    if (!username || !userId || !profilePicture || !content) {
+    if (!username || !profilePicture || !content) {
       return res.status(400).send({ message: 'All fields are required' });
     }
 
-    // 創建新的推文
     const newTweet = new Tweet({
       id: uuidv4(),
       createdAt: new Date().toISOString(),
       username,
-      userId,
       profilePicture,
       content,
       comments: 0,
@@ -73,11 +84,25 @@ router.post('/createPost', async (req, res) => {
       views: 0
     });
 
-    // 保存到數據庫
     await newTweet.save();
 
-    // 返回創建成功的響應
-    res.status(201).send({ message: 'Tweet successfully created', data: newTweet.toJSON() });
+    // Fetch the user's nickname
+    const user = await User.findOne({ username });
+    const tweetData = newTweet.toObject();
+    const tweetWithNickname: ICreateTweetResponse = {
+      id: tweetData.id,
+      createdAt: tweetData.createdAt,
+      username: tweetData.username,
+      profilePicture: tweetData.profilePicture,
+      content: tweetData.content,
+      comments: tweetData.comments,
+      retweets: tweetData.retweets,
+      likes: tweetData.likes,
+      views: tweetData.views,
+      nickname: user ? user.nickname : null
+    };
+
+    res.status(201).send({ message: 'Tweet successfully created', data: tweetWithNickname });
   } catch (error) {
     res.status(500).send({ message: 'Error in creating tweet' });
   }
@@ -103,14 +128,85 @@ router.post('/getTweet/:id', async (req, res) => {
 
 router.post('/getAllTweets', async (req, res) => {
   try {
-    // 從數據庫中查找所有推文
-    const tweets = await Tweet.find().sort({ createdAt: -1 }).lean();
+    // 使用聚合管道將Tweet和User集合連接起來
+    const tweetsWithNickname = await Tweet.aggregate([
+      {
+        $lookup: {
+          from: 'users', // The collection name for User documents
+          localField: 'username',
+          foreignField: 'username',
+          as: 'userDetails'
+        }
+      },
+      {
+        $unwind: {
+          path: '$userDetails',
+          preserveNullAndEmptyArrays: true // If no match is found, userDetails will be null
+        }
+      },
+      {
+        $project: {
+          id: 1,
+          createdAt: 1,
+          username: 1,
+          profilePicture: 1,
+          content: 1,
+          comments: 1,
+          retweets: 1,
+          likes: 1,
+          views: 1,
+          nickname: '$userDetails.nickname'
+        }
+      },
+      { $sort: { createdAt: -1 } }
+    ]);
 
     // 返回查找成功的響應
-    res.status(200).send({ status: 'success', message: 'Tweets found', data: tweets.map(tweet => {
-      const { _id, __v, ...rest } = tweet;
-      return { ...rest, id: _id };
-    }) });
+    res.status(200).send({ status: 'success', message: 'Tweets found', data: tweetsWithNickname });
+  } catch (error) {
+    res.status(500).send({ message: 'Error in fetching tweets' });
+  }
+});
+
+
+router.post('/getTweets/:username', async (req, res) => {
+  try {
+    const { username } = req.params;
+
+    // 使用聚合管道查找特定用戶的推文並加入暱稱
+    const tweetsWithNickname = await Tweet.aggregate([
+      { $match: { username } }, // 過濾特定用戶的推文
+      {
+        $lookup: {
+          from: 'users', // 目標集合
+          localField: 'username', // Tweet 集合中的字段
+          foreignField: 'username', // User 集合中的字段
+          as: 'userDetails' // 新的字段名
+        }
+      },
+      { $unwind: { path: '$userDetails', preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          id: 1,
+          createdAt: 1,
+          username: 1,
+          profilePicture: 1,
+          content: 1,
+          comments: 1,
+          retweets: 1,
+          likes: 1,
+          views: 1,
+          nickname: '$userDetails.nickname' // 加入暱稱
+        }
+      },
+      { $sort: { createdAt: -1 } } // 按創建時間排序
+    ]);
+
+    if (tweetsWithNickname.length === 0) {
+      return res.status(404).send({ message: 'No tweets found for this user' });
+    }
+
+    res.status(200).send({ status: 'success', message: 'Tweets found', data: tweetsWithNickname });
   } catch (error) {
     res.status(500).send({ message: 'Error in fetching tweets' });
   }
