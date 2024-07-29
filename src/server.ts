@@ -1,7 +1,8 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import authRoutes from './routes/auth';
-import postRoutes from './routes/post'
+import postRoutes from './routes/post';
+import commentRoutes from './routes/comment';
 import dotenv from 'dotenv';
 import cors from 'cors';
 
@@ -13,6 +14,7 @@ app.use(express.json());
 app.use(cors());
 app.use('/api/auth', authRoutes);
 app.use('/api/post', postRoutes);
+app.use('/api/comment', commentRoutes);
 const port = 3000;
 app.get('/', (req, res) => {
   res.send('The server is working!');

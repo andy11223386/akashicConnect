@@ -3,20 +3,9 @@ import mongoose, { Schema, Document } from 'mongoose';
 import User from '../models/user';
 import { v4 as uuidv4 } from 'uuid';
 
+import Tweet from '../models/tweet';
 
 
-// 定義推文接口
-export interface ITweet extends Document {
-  id: string;
-  createdAt: string;
-  username: string;
-  profilePicture: string;
-  content: string;
-  comments: number;
-  retweets: number;
-  likes: number;
-  views: number;
-}
 
 export interface ICreateTweetResponse {
   id: string;
@@ -24,43 +13,12 @@ export interface ICreateTweetResponse {
   username: string;
   profilePicture: string;
   content: string;
-  comments: number;
+  comments: string[];
   retweets: number;
   likes: number;
   views: number;
   nickname: string | null;
 }
-
-// 創建推文 Schema
-const TweetSchema: Schema = new Schema({
-  id: { type: String, required: true, unique: true },
-  createdAt: { type: String, required: true },
-  username: { type: String, required: true },
-  profilePicture: { type: String, required: true },
-  content: { type: String, required: true },
-  comments: { type: Number, required: true, default: 0 },
-  retweets: { type: Number, required: true, default: 0 },
-  likes: { type: Number, required: true, default: 0 },
-  views: { type: Number, required: true, default: 0 }
-}, {
-  toJSON: {
-    transform: (doc, ret) => {
-      ret.id = ret._id;
-      delete ret._id;
-      delete ret.__v;
-    }
-  },
-  toObject: {
-    transform: (doc, ret) => {
-      ret.id = ret._id;
-      delete ret._id;
-      delete ret.__v;
-    }
-  }
-});
-
-// 創建推文模型
-const Tweet = mongoose.model<ITweet>('Tweet', TweetSchema);
 
 const router = express.Router();
 
@@ -78,7 +36,7 @@ router.post('/createPost', async (req, res) => {
       username,
       profilePicture,
       content,
-      comments: 0,
+      comments: [],
       retweets: 0,
       likes: 0,
       views: 0
