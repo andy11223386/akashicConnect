@@ -2,7 +2,6 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 // 定義評論接口
 export interface IComment extends Document {
-  id: string;
   replyPostId: string;
   replyTo: string;
   createdAt: string;
@@ -16,7 +15,6 @@ export interface IComment extends Document {
 
 // 創建評論 Schema
 const CommentSchema: Schema = new Schema({
-  id: { type: String, required: true, unique: true },
   replyPostId: { type: String, required: true },
   replyTo: { type: String, required: false },
   createdAt: { type: String, required: true },
@@ -26,21 +24,6 @@ const CommentSchema: Schema = new Schema({
   retweets: { type: Number, required: true, default: 0 },
   likes: { type: Number, required: true, default: 0 },
   views: { type: Number, required: true, default: 0 }
-}, {
-  toJSON: {
-    transform: (doc, ret) => {
-      ret.id = ret._id;
-      delete ret._id;
-      delete ret.__v;
-    }
-  },
-  toObject: {
-    transform: (doc, ret) => {
-      ret.id = ret._id;
-      delete ret._id;
-      delete ret.__v;
-    }
-  }
 });
 
 // 創建評論模型

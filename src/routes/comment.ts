@@ -16,7 +16,6 @@ router.post('/createComment', async (req, res) => {
     }
 
     const newComment = new Comment({
-      id: uuidv4(),
       replyPostId,
       replyTo: replyTo || '',
       createdAt: new Date().toISOString(),
@@ -32,8 +31,8 @@ router.post('/createComment', async (req, res) => {
 
     // 將評論ID添加到對應推文的comments字段中
     await Tweet.updateOne(
-      { id: replyPostId },
-      { $push: { comments: newComment.id } }
+      { _id: replyPostId },
+      { $push: { comments: newComment._id } }
     );
 
     res.status(201).send({ message: '評論創建成功', data: newComment.toJSON() });

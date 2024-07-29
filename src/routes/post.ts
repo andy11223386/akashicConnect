@@ -4,11 +4,12 @@ import User from '../models/user';
 import { v4 as uuidv4 } from 'uuid';
 
 import Tweet from '../models/tweet';
+import Comment from '../models/comment';
 
 
 
 export interface ICreateTweetResponse {
-  id: string;
+  _id: string;
   createdAt: string;
   username: string;
   profilePicture: string;
@@ -31,7 +32,6 @@ router.post('/createPost', async (req, res) => {
     }
 
     const newTweet = new Tweet({
-      id: uuidv4(),
       createdAt: new Date().toISOString(),
       username,
       profilePicture,
@@ -48,7 +48,7 @@ router.post('/createPost', async (req, res) => {
     const user = await User.findOne({ username });
     const tweetData = newTweet.toObject();
     const tweetWithNickname: ICreateTweetResponse = {
-      id: tweetData.id,
+      _id:tweetData._id,
       createdAt: tweetData.createdAt,
       username: tweetData.username,
       profilePicture: tweetData.profilePicture,
@@ -86,46 +86,40 @@ router.post('/getTweet/:id', async (req, res) => {
 
 router.post('/getAllTweets', async (req, res) => {
   try {
-    // 使用聚合管道將Tweet和User集合連接起來
-    const tweetsWithNickname = await Tweet.aggregate([
-      {
-        $lookup: {
-          from: 'users', // The collection name for User documents
-          localField: 'username',
-          foreignField: 'username',
-          as: 'userDetails'
-        }
-      },
-      {
-        $unwind: {
-          path: '$userDetails',
-          preserveNullAndEmptyArrays: true // If no match is found, userDetails will be null
-        }
-      },
-      {
-        $project: {
-          id: 1,
-          createdAt: 1,
-          username: 1,
-          profilePicture: 1,
-          content: 1,
-          comments: 1,
-          retweets: 1,
-          likes: 1,
-          views: 1,
-          nickname: '$userDetails.nickname'
-        }
-      },
-      { $sort: { createdAt: -1 } }
-    ]);
+    // Fetch all tweets sorted by createdAt in descending order
+    const tweets = await Tweet.find().sort({ createdAt: -1 });
 
-    // 返回查找成功的響應
-    res.status(200).send({ status: 'success', message: 'Tweets found', data: tweetsWithNickname });
+    // Prepare a list to hold tweets with detailed comments and user info
+    const tweetsWithComments = await Promise.all(tweets.map(async tweet => {
+      // Fetch detailed comments for each tweet using the comment IDs
+      const commentsWithUserDetails = await Promise.all(tweet.comments.map(async commentId => {
+        const comment = await Comment.findOne({ _id: commentId });
+        if (!comment) return null;
+
+        // Fetch the user's details for each comment
+        const user = await User.findOne({ username: comment.username });
+        return {
+          ...comment.toObject(),
+          nickname: user ? user.nickname : null,
+          profilePicture: user ? user.profilePicture : null
+        };
+      }));
+
+      // Filter out any null comments (if any comment ID didn't find a corresponding comment)
+      const filteredComments = commentsWithUserDetails.filter(comment => comment !== null);
+
+      return {
+        ...tweet.toObject(),
+        comments: filteredComments
+      };
+    }));
+
+    // Return the tweets along with their comments and user details
+    res.status(200).send({ status: 'success', data: tweetsWithComments });
   } catch (error) {
-    res.status(500).send({ message: 'Error in fetching tweets' });
+    res.status(500).send({ message: 'Error in fetching tweets and comments', error });
   }
 });
-
 
 router.post('/getTweets/:username', async (req, res) => {
   try {
@@ -145,7 +139,7 @@ router.post('/getTweets/:username', async (req, res) => {
       { $unwind: { path: '$userDetails', preserveNullAndEmptyArrays: true } },
       {
         $project: {
-          id: 1,
+          _id: 1,
           createdAt: 1,
           username: 1,
           profilePicture: 1,

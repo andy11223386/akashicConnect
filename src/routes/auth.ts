@@ -22,7 +22,7 @@ router.post('/signup', async (req, res) => {
       }
 
       // Create new user with profile info
-      const user = new User({ username, email, password, nickname:'', bio: '', createdAt: new Date().toISOString(), followings: [], followers: [] });
+      const user = new User({ username, email, password, nickname:'', profilePicture:'', bio: '', createdAt: new Date().toISOString(), followings: [], followers: [] });
       await user.save();
 
       // Create JWT token
@@ -56,6 +56,7 @@ router.post('/login', async (req, res) => {
     const profile = {
       username: user.username,
       nickname: user.nickname,
+      profilePicture: user.profilePicture,
       bio: user.bio,
       createdAt: user.createdAt,
       followingsCount: user.followings.length,
@@ -86,6 +87,7 @@ router.post('/profile/:username', async (req, res) => {
     const profile = {
       username: user.username,
       nickname: user.nickname,
+      profilePicture: user.profilePicture,
       bio: user.bio,
       createdAt: user.createdAt,
       followingsCount: user.followings.length,
@@ -120,6 +122,7 @@ router.post('/updateProfile/:username', async (req, res) => {
     const profile = {
       username: user.username,
       nickname: user.nickname,
+      profilePicture: user.profilePicture,
       bio: user.bio,
       createdAt: user.createdAt,
       followingsCount: user.followings.length,

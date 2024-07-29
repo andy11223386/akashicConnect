@@ -2,7 +2,6 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 // 定義推文接口
 export interface ITweet extends Document {
-  id: string;
   createdAt: string;
   username: string;
   profilePicture: string;
@@ -15,7 +14,6 @@ export interface ITweet extends Document {
 
 // 創建推文 Schema
 const TweetSchema: Schema = new Schema({
-  id: { type: String, required: true, unique: true },
   createdAt: { type: String, required: true },
   username: { type: String, required: true },
   profilePicture: { type: String, required: true },
@@ -24,21 +22,6 @@ const TweetSchema: Schema = new Schema({
   retweets: { type: Number, required: true, default: 0 },
   likes: { type: Number, required: true, default: 0 },
   views: { type: Number, required: true, default: 0 }
-}, {
-  toJSON: {
-    transform: (doc, ret) => {
-      ret.id = ret._id;
-      delete ret._id;
-      delete ret.__v;
-    }
-  },
-  toObject: {
-    transform: (doc, ret) => {
-      ret.id = ret._id;
-      delete ret._id;
-      delete ret.__v;
-    }
-  }
 });
 
 // 創建推文模型
