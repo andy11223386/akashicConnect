@@ -19,18 +19,20 @@ export interface ICreateTweetResponse {
   likes: string[]; // Update likes to array of strings
   views: number;
   nickname: string | null;
+  imageUrl: string | null;
 }
 
 const router = express.Router();
 
 router.post('/createPost', async (req, res) => {
   try {
-    const { username, content } = req.body;
+    const { username, content, imageUrl} = req.body;
 
     if (!username  || !content) {
       return res.status(400).send({ message: 'All fields are required' });
     }
 
+    
     const newTweet = new Tweet({
       createdAt: new Date().toISOString(),
       username,
@@ -38,7 +40,8 @@ router.post('/createPost', async (req, res) => {
       comments: [],
       retweets: 0,
       likes: [],
-      views: 0
+      views: 0,
+      imageUrl,
     });
 
     await newTweet.save();
@@ -55,7 +58,8 @@ router.post('/createPost', async (req, res) => {
       likes: tweetData.likes,
       views: tweetData.views,
       nickname: user ? user.nickname : null,
-      profilePicture: user ? user.profilePicture : null
+      profilePicture: user ? user.profilePicture : null,
+      imageUrl: tweetData.imageUrl,
     };
 
     res.status(201).send({ message: 'Tweet successfully created', data: tweetWithNickname });
@@ -98,7 +102,8 @@ router.post('/getTweet/:id', async (req, res) => {
       retweets: tweet.retweets,
       likes: tweet.likes,
       views: tweet.views,
-      nickname: user ? user.nickname : null
+      nickname: user ? user.nickname : null,
+      imageUrl: tweet.imageUrl,
     };
 
     res.status(200).send({ status: 'success', message: 'Tweet found', data: tweetWithNickname });
@@ -170,6 +175,7 @@ router.post('/getTweets/:username', async (req, res) => {
           likes: 1,
           views: 1,
           nickname: '$userDetails.nickname', // 加入暱稱
+          imageUrl:1,
         }
       },
       { $sort: { createdAt: -1 } } // 按創建時間排序

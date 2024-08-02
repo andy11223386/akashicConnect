@@ -9,6 +9,7 @@ export interface ITweet extends Document {
   retweets: number;
   likes: string[]; // Array of usernames who liked the tweet
   views: number;
+  imageUrl: string
 }
 
 // 創建推文 Schema
@@ -19,7 +20,8 @@ const TweetSchema: Schema = new Schema({
   comments: { type: [String], required: true, default: [] },
   retweets: { type: Number, required: true, default: 0 },
   likes: { type: [String], required: true, default: [] }, // Update likes to array of strings
-  views: { type: Number, required: true, default: 0 }
+  views: { type: Number, required: true, default: 0 },
+  imageUrl: { type: String, required: false },
 });
 
 // 創建推文模型
