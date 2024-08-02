@@ -12,11 +12,11 @@ export interface ICreateTweetResponse {
   _id: string;
   createdAt: string;
   username: string;
-  profilePicture: string;
+  profilePicture: string | null;
   content: string;
   comments: string[];
   retweets: number;
-  likes: number;
+  likes: string[]; // Update likes to array of strings
   views: number;
   nickname: string | null;
 }
@@ -25,39 +25,37 @@ const router = express.Router();
 
 router.post('/createPost', async (req, res) => {
   try {
-    const { username, profilePicture, content } = req.body;
+    const { username, content } = req.body;
 
-    if (!username || !profilePicture || !content) {
+    if (!username  || !content) {
       return res.status(400).send({ message: 'All fields are required' });
     }
 
     const newTweet = new Tweet({
       createdAt: new Date().toISOString(),
       username,
-      profilePicture,
       content,
       comments: [],
       retweets: 0,
-      likes: 0,
+      likes: [],
       views: 0
     });
 
     await newTweet.save();
 
-    // Fetch the user's nickname
     const user = await User.findOne({ username });
     const tweetData = newTweet.toObject();
     const tweetWithNickname: ICreateTweetResponse = {
-      _id:tweetData._id,
+      _id: tweetData._id,
       createdAt: tweetData.createdAt,
       username: tweetData.username,
-      profilePicture: tweetData.profilePicture,
       content: tweetData.content,
       comments: tweetData.comments,
       retweets: tweetData.retweets,
       likes: tweetData.likes,
       views: tweetData.views,
-      nickname: user ? user.nickname : null
+      nickname: user ? user.nickname : null,
+      profilePicture: user ? user.profilePicture : null
     };
 
     res.status(201).send({ message: 'Tweet successfully created', data: tweetWithNickname });
@@ -70,52 +68,75 @@ router.post('/getTweet/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    // 從數據庫中查找推文
-    const tweet = await Tweet.findOne({ id });
-
+    const tweet = await Tweet.findById(id);
     if (!tweet) {
       return res.status(404).send({ message: 'Tweet not found' });
     }
 
-    // 返回查找成功的響應
-    res.status(200).send({ message: 'Tweet found', tweet: tweet.toJSON() });
+    const commentsWithUserDetails = await Promise.all(tweet.comments.map(async commentId => {
+      const comment = await Comment.findById(commentId);
+      if (!comment) return null;
+
+      const user = await User.findOne({ username: comment.username });
+      return {
+        ...comment.toObject(),
+        nickname: user ? user.nickname : null,
+        profilePicture: user ? user.profilePicture : null
+      };
+    }));
+
+    const filteredComments = commentsWithUserDetails.filter(comment => comment !== null);
+
+    const user = await User.findOne({ username: tweet.username });
+    const tweetWithNickname = {
+      _id: tweet._id,
+      createdAt: tweet.createdAt,
+      username: tweet.username,
+      profilePicture: user? user.profilePicture: null,
+      content: tweet.content,
+      comments: filteredComments,
+      retweets: tweet.retweets,
+      likes: tweet.likes,
+      views: tweet.views,
+      nickname: user ? user.nickname : null
+    };
+
+    res.status(200).send({ status: 'success', message: 'Tweet found', data: tweetWithNickname });
   } catch (error) {
-    res.status(500).send({ message: 'Error in fetching tweet' });
+    res.status(500).send({ message: 'Error in fetching tweet', error });
   }
 });
 
+
 router.post('/getAllTweets', async (req, res) => {
   try {
-    // Fetch all tweets sorted by createdAt in descending order
     const tweets = await Tweet.find().sort({ createdAt: -1 });
 
-    // Prepare a list to hold tweets with detailed comments and user info
-    const tweetsWithComments = await Promise.all(tweets.map(async tweet => {
-      // Fetch detailed comments for each tweet using the comment IDs
+    const tweetsWithDetails = await Promise.all(tweets.map(async tweet => {
+      const user = await User.findOne({ username: tweet.username });
       const commentsWithUserDetails = await Promise.all(tweet.comments.map(async commentId => {
         const comment = await Comment.findOne({ _id: commentId });
         if (!comment) return null;
 
-        // Fetch the user's details for each comment
-        const user = await User.findOne({ username: comment.username });
+        const commentUser = await User.findOne({ username: comment.username });
         return {
           ...comment.toObject(),
-          nickname: user ? user.nickname : null,
-          profilePicture: user ? user.profilePicture : null
+          nickname: commentUser ? commentUser.nickname : null,
+          profilePicture: commentUser ? commentUser.profilePicture : null
         };
       }));
 
-      // Filter out any null comments (if any comment ID didn't find a corresponding comment)
       const filteredComments = commentsWithUserDetails.filter(comment => comment !== null);
 
       return {
         ...tweet.toObject(),
+        nickname: user ? user.nickname : null,
+        profilePicture: user ? user.profilePicture : null,
         comments: filteredComments
       };
     }));
 
-    // Return the tweets along with their comments and user details
-    res.status(200).send({ status: 'success', data: tweetsWithComments });
+    res.status(200).send({ status: 'success', data: tweetsWithDetails });
   } catch (error) {
     res.status(500).send({ message: 'Error in fetching tweets and comments', error });
   }
@@ -142,13 +163,13 @@ router.post('/getTweets/:username', async (req, res) => {
           _id: 1,
           createdAt: 1,
           username: 1,
-          profilePicture: 1,
+          profilePicture: '$userDetails.profilePicture',
           content: 1,
           comments: 1,
           retweets: 1,
           likes: 1,
           views: 1,
-          nickname: '$userDetails.nickname' // 加入暱稱
+          nickname: '$userDetails.nickname', // 加入暱稱
         }
       },
       { $sort: { createdAt: -1 } } // 按創建時間排序
@@ -161,6 +182,42 @@ router.post('/getTweets/:username', async (req, res) => {
     res.status(200).send({ status: 'success', message: 'Tweets found', data: tweetsWithNickname });
   } catch (error) {
     res.status(500).send({ message: 'Error in fetching tweets' });
+  }
+});
+
+router.post('/like', async (req, res) => {
+  try {
+    const { postId, username } = req.body;
+
+    if (!postId || !username) {
+      return res.status(400).send({ message: 'Tweet ID and username are required' });
+    }
+
+    const tweet = await Tweet.findById(postId);
+    if (!tweet) {
+      return res.status(404).send({ message: 'Tweet not found' });
+    }
+
+    const user = await User.findOne({ username });
+    if (!user) {
+      return res.status(404).send({ message: 'User not found' });
+    }
+
+    const isLiked = tweet.likes.includes(username);
+
+    const update = isLiked 
+      ? { $pull: { likes: username } }
+      : { $addToSet: { likes: username } };
+
+    const updatedTweet = await Tweet.findByIdAndUpdate(postId, update, { new: true });
+
+    const message = isLiked
+      ? 'Tweet unliked successfully'
+      : 'Tweet liked successfully';
+
+    res.status(200).send({ status: 'success', message, data: updatedTweet });
+  } catch (error) {
+    res.status(500).send({ message: 'Error liking/unliking tweet', error });
   }
 });
 

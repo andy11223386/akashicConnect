@@ -4,11 +4,10 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface ITweet extends Document {
   createdAt: string;
   username: string;
-  profilePicture: string;
   content: string;
-  comments: string[]; // 修改為字符串數組，用於存儲評論ID
+  comments: string[]; // Array of comment IDs
   retweets: number;
-  likes: number;
+  likes: string[]; // Array of usernames who liked the tweet
   views: number;
 }
 
@@ -16,11 +15,10 @@ export interface ITweet extends Document {
 const TweetSchema: Schema = new Schema({
   createdAt: { type: String, required: true },
   username: { type: String, required: true },
-  profilePicture: { type: String, required: true },
   content: { type: String, required: true },
-  comments: { type: [String], required: true, default: [] }, // 新增的comments字段
+  comments: { type: [String], required: true, default: [] },
   retweets: { type: Number, required: true, default: 0 },
-  likes: { type: Number, required: true, default: 0 },
+  likes: { type: [String], required: true, default: [] }, // Update likes to array of strings
   views: { type: Number, required: true, default: 0 }
 });
 
