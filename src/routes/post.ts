@@ -191,6 +191,65 @@ router.post('/getTweets/:username', async (req, res) => {
   }
 });
 
+router.post('/getHistoryTweets', async (req, res) => {
+  try {
+    const { _ids } = req.body;
+
+    console.log('req.body', req.body)
+    
+
+    console.log('_ids', _ids)
+
+    if (!Array.isArray(_ids) || _ids.length === 0) {
+      return res.status(400).send({ message: 'Invalid tweet IDs array' });
+    }
+
+    const historyTweets = await Promise.all(_ids.map(async (id) => {
+      const tweet = await Tweet.findById(id);
+      if (!tweet) return null;
+
+      const commentsWithUserDetails = await Promise.all(tweet.comments.map(async commentId => {
+        const comment = await Comment.findById(commentId);
+        if (!comment) return null;
+
+        const user = await User.findOne({ username: comment.username });
+        return {
+          ...comment.toObject(),
+          nickname: user ? user.nickname : null,
+          profilePicture: user ? user.profilePicture : null
+        };
+      }));
+
+      const filteredComments = commentsWithUserDetails.filter(comment => comment !== null);
+
+      const user = await User.findOne({ username: tweet.username });
+      return {
+        _id: tweet._id,
+        createdAt: tweet.createdAt,
+        username: tweet.username,
+        profilePicture: user ? user.profilePicture : null,
+        content: tweet.content,
+        comments: filteredComments,
+        retweets: tweet.retweets,
+        likes: tweet.likes,
+        views: tweet.views,
+        nickname: user ? user.nickname : null,
+        imageUrl: tweet.imageUrl,
+      };
+    }));
+
+    const filteredHistoryTweets = historyTweets.filter(tweet => tweet !== null);
+
+    if (filteredHistoryTweets.length === 0) {
+      return res.status(404).send({ message: 'No tweets found' });
+    }
+
+    res.status(200).send({ status: 'success', data: filteredHistoryTweets });
+  } catch (error) {
+    res.status(500).send({ message: 'Error in fetching history tweets', error });
+  }
+});
+
 router.post('/like', async (req, res) => {
   try {
     const { postId, username } = req.body;
