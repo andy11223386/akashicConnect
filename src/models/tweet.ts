@@ -6,7 +6,7 @@ export interface ITweet extends Document {
   username: string;
   content: string;
   comments: string[]; // Array of comment IDs
-  retweets: number;
+  retweets: string[];
   likes: string[]; // Array of usernames who liked the tweet
   views: number;
   imageUrl: string
@@ -18,7 +18,7 @@ const TweetSchema: Schema = new Schema({
   username: { type: String, required: true },
   content: { type: String, required: true },
   comments: { type: [String], required: true, default: [] },
-  retweets: { type: Number, required: true, default: 0 },
+  retweets: { type: [String], required: true, default: [] },
   likes: { type: [String], required: true, default: [] }, // Update likes to array of strings
   views: { type: Number, required: true, default: 0 },
   imageUrl: { type: String, required: false },

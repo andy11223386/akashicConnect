@@ -15,7 +15,7 @@ export interface ICreateTweetResponse {
   profilePicture: string | null;
   content: string;
   comments: string[];
-  retweets: number;
+  retweets: string[];
   likes: string[]; // Update likes to array of strings
   views: number;
   nickname: string | null;
@@ -38,7 +38,7 @@ router.post('/createPost', async (req, res) => {
       username,
       content,
       comments: [],
-      retweets: 0,
+      retweets: [],
       likes: [],
       views: 0,
       imageUrl,
@@ -194,11 +194,6 @@ router.post('/getHistoryTweets', async (req, res) => {
   try {
     const { _ids } = req.body;
 
-    console.log('req.body', req.body)
-    
-
-    console.log('_ids', _ids)
-
     if (!Array.isArray(_ids) || _ids.length === 0) {
       return res.status(400).send({ message: 'Invalid tweet IDs array' });
     }
@@ -282,6 +277,42 @@ router.post('/like', async (req, res) => {
     res.status(200).send({ status: 'success', message, data: updatedTweet });
   } catch (error) {
     res.status(500).send({ message: 'Error liking/unliking tweet', error });
+  }
+});
+
+router.post('/retweet', async (req, res) => {
+  try {
+    const { postId, username } = req.body;
+
+    if (!postId || !username) {
+      return res.status(400).send({ message: 'Tweet ID and username are required' });
+    }
+
+    const tweet = await Tweet.findById(postId);
+    if (!tweet) {
+      return res.status(404).send({ message: 'Tweet not found' });
+    }
+
+    const user = await User.findOne({ username });
+    if (!user) {
+      return res.status(404).send({ message: 'User not found' });
+    }
+
+    const isRetweeted = tweet.retweets.includes(username);
+
+    const update = isRetweeted
+      ? { $pull: { retweets: username } }
+      : { $addToSet: { retweets: username } };
+
+    const updatedTweet = await Tweet.findByIdAndUpdate(postId, update, { new: true });
+
+    const message = isRetweeted
+      ? 'Tweet unretweeted successfully'
+      : 'Tweet retweeted successfully';
+
+    res.status(200).send({ status: 'success', message, data: updatedTweet });
+  } catch (error) {
+    res.status(500).send({ message: 'Error retweeting/unretweeting tweet', error });
   }
 });
 
