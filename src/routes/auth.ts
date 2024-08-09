@@ -79,7 +79,7 @@ router.post('/profile/:username', async (req, res) => {
   try {
     const { username } = req.params;
     const user = await User.findOne({ username })
-      .select('username nickname bio createdAt followings followers')
+      .select('username nickname bio createdAt followings followers profilePicture')
       .lean();
 
     if (!user) return res.status(404).send({ message: 'User not found' });
