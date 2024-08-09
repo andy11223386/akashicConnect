@@ -151,43 +151,42 @@ router.post('/getTweets/:username', async (req, res) => {
   try {
     const { username } = req.params;
 
-    // 使用聚合管道查找特定用戶的推文並加入暱稱
-    const tweetsWithNickname = await Tweet.aggregate([
-      { $match: { username } }, // 過濾特定用戶的推文
-      {
-        $lookup: {
-          from: 'users', // 目標集合
-          localField: 'username', // Tweet 集合中的字段
-          foreignField: 'username', // User 集合中的字段
-          as: 'userDetails' // 新的字段名
-        }
-      },
-      { $unwind: { path: '$userDetails', preserveNullAndEmptyArrays: true } },
-      {
-        $project: {
-          _id: 1,
-          createdAt: 1,
-          username: 1,
-          profilePicture: '$userDetails.profilePicture',
-          content: 1,
-          comments: 1,
-          retweets: 1,
-          likes: 1,
-          views: 1,
-          nickname: '$userDetails.nickname', // 加入暱稱
-          imageUrl:1,
-        }
-      },
-      { $sort: { createdAt: -1 } } // 按創建時間排序
-    ]);
+    // Find all tweets from the specific user
+    const tweets = await Tweet.find({ username }).sort({ createdAt: -1 });
 
-    if (tweetsWithNickname.length === 0) {
+    if (tweets.length === 0) {
       return res.status(404).send({ message: 'No tweets found for this user' });
     }
 
-    res.status(200).send({ status: 'success', message: 'Tweets found', data: tweetsWithNickname });
+    // Prepare the tweets with additional user details
+    const tweetsWithDetails = await Promise.all(tweets.map(async (tweet) => {
+      const user = await User.findOne({ username: tweet.username });
+
+      const commentsWithUserDetails = await Promise.all(tweet.comments.map(async (commentId) => {
+        const comment = await Comment.findById(commentId);
+        if (!comment) return null;
+
+        const commentUser = await User.findOne({ username: comment.username });
+        return {
+          ...comment.toObject(),
+          nickname: commentUser ? commentUser.nickname : null,
+          profilePicture: commentUser ? commentUser.profilePicture : null
+        };
+      }));
+
+      const filteredComments = commentsWithUserDetails.filter(comment => comment !== null);
+
+      return {
+        ...tweet.toObject(),
+        nickname: user ? user.nickname : null,
+        profilePicture: user ? user.profilePicture : null,
+        comments: filteredComments
+      };
+    }));
+
+    res.status(200).send({ status: 'success', data: tweetsWithDetails });
   } catch (error) {
-    res.status(500).send({ message: 'Error in fetching tweets' });
+    res.status(500).send({ message: 'Error in fetching tweets for user', error });
   }
 });
 
