@@ -11,6 +11,7 @@ export interface IComment extends Document {
   retweets: number;
   likes: number;
   views: number;
+  floor: number; // 新增樓層字段
 }
 
 // 創建評論 Schema
@@ -23,7 +24,8 @@ const CommentSchema: Schema = new Schema({
   comments: { type: Number, required: true, default: 0 },
   retweets: { type: Number, required: true, default: 0 },
   likes: { type: Number, required: true, default: 0 },
-  views: { type: Number, required: true, default: 0 }
+  views: { type: Number, required: true, default: 0 },
+  floor: { type: Number, required: true } // 新增樓層字段
 });
 
 // 創建評論模型
