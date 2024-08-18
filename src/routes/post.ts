@@ -291,6 +291,52 @@ router.post('/getMyRetweet/:username', async (req, res) => {
   }
 });
 
+router.post('/getMyLikeTweet/:username', async (req, res) => {
+  try {
+    const { username } = req.params;
+
+    if (!username) {
+      return res.status(400).send({ message: 'Username is required' });
+    }
+
+    const likeTweets = await Tweet.find({ likes: username }).sort({ createdAt: -1 });
+
+    // Prepare the retweeted tweets with additional user details
+    const tweetsWithDetails = await Promise.all(likeTweets.map(async (tweet) => {
+      const user = await User.findOne({ username: tweet.username });
+
+      const commentsWithUserDetails = await Promise.all(tweet.comments.map(async (commentId) => {
+        const comment = await Comment.findById(commentId);
+        if (!comment) return null;
+
+        const commentUser = await User.findOne({ username: comment.username });
+        return {
+          ...comment.toObject(),
+          nickname: commentUser ? commentUser.nickname : null,
+          profilePicture: commentUser ? commentUser.profilePicture : null,
+        };
+      }));
+
+      const filteredComments = commentsWithUserDetails.filter(comment => comment !== null);
+
+      return {
+        ...tweet.toObject(),
+        nickname: user ? user.nickname : null,
+        profilePicture: user ? user.profilePicture : null,
+        comments: filteredComments,
+      };
+    }));
+
+    if (tweetsWithDetails.length === 0) {
+      return res.status(404).send({ message: 'No liked tweets found for this user' });
+    }
+
+    res.status(200).send({ status: 'success', data: tweetsWithDetails });
+  } catch (error) {
+    res.status(500).send({ message: 'Error in fetching retweets', error });
+  }
+});
+
 router.post('/like', async (req, res) => {
   try {
     const { postId, username } = req.body;
