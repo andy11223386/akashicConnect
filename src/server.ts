@@ -27,9 +27,6 @@ app.listen(port, () => {
 });
 
 const mongoURI = "mongodb+srv://andy11223386:n091158052@cluster0.sp7plmw.mongodb.net/?retryWrites=true&w=majority";
-// mongoose.connect(mongoURI)
-//   .then(() => console.log('MongoDB connection successful'))
-//   .catch((err) => console.error('MongoDB connection error:', err));
 
   mongoose.set("strictQuery", false);
   mongoose
